@@ -23,6 +23,50 @@ def get_char():
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
+def display_recent_log_entries():
+    print("\n--- Last 10 Entries ---")
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT timestamp, ounces FROM water_log ORDER BY timestamp DESC LIMIT 10")
+        rows = cursor.fetchall()
+        conn.close()
+
+        if not rows:
+            print("No entries found.")
+        else:
+            print("{:<25} {:<10}".format("Timestamp", "Ounces"))
+            print("-" * 35)
+            for row in reversed(rows):
+                print("{:<25} {:<10.2f}".format(row[0], row[1]))
+    except sqlite3.OperationalError:
+        print("Could not display recent entries. 'water_log' table not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+def display_recent_summary():
+    print("\n--- Recent Daily Summaries ---")
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT date, total, percent_of_target FROM water_log_full ORDER BY date DESC LIMIT 10")
+        rows = cursor.fetchall()
+        conn.close()
+
+        if not rows:
+            print("No summary data found.")
+        else:
+            print("{:<12} {:<12} {:<10}".format("Date", "Total (oz)", "% Target"))
+            print("-" * 36)
+            for row in reversed(rows):
+                total = f"{row[1]:.2f}"
+                percent = f"{row[2]:.2f}%" if row[2] is not None else "N/A"
+                print("{:<12} {:<12} {:<10}".format(row[0], total, percent))
+    except sqlite3.OperationalError:
+        print("Could not display daily summary. 'water_log_full' view not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 def show_water_log():
     os.system('cls' if os.name == 'nt' else 'clear')
     print("--- Full Water Log ---")
@@ -51,7 +95,7 @@ def show_water_log():
 
 def show_daily_summary():
     os.system('cls' if os.name == 'nt' else 'clear')
-    print("--- Daily Summary ---")
+    print("--- Full Daily Summary ---")
     try:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
@@ -151,35 +195,16 @@ def remove_last_entry():
 def main_menu():
     os.system('cls' if os.name == 'nt' else 'clear')
     print("--- Water Tracker TUI ---")
-
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        cursor = conn.cursor()
-        # Fetch last 10 entries
-        cursor.execute("SELECT timestamp, ounces FROM water_log ORDER BY timestamp DESC LIMIT 10")
-        rows = cursor.fetchall()
-        conn.close()
-
-        print("\n--- Last 10 Entries ---")
-        if not rows:
-            print("No entries found.")
-        else:
-            print("{:<25} {:<10}".format("Timestamp", "Ounces"))
-            print("-" * 35)
-            for row in reversed(rows): # reverse to show oldest of the 10 first
-                print("{:<25} {:<10.2f}".format(row[0], row[1]))
-
-    except sqlite3.OperationalError:
-        print("\nCould not display recent entries. 'water_log' table not found.")
-    except Exception as e:
-        print(f"\nAn error occurred while fetching recent entries: {e}")
+    
+    display_recent_log_entries()
+    display_recent_summary()
 
     print("\n\n--- Menu ---")
     print(f"[d] Drink water ({DEFAULT_OUNCES} oz)")
     print("[s] Set default ounces")
     print("[r] Remove most recent entry")
     print("[1] Show full water log")
-    print("[2] Show daily summary")
+    print("[2] Show full daily summary")
     print("[q] Quit")
     print("-------------------------")
 
