@@ -196,7 +196,7 @@ class WaterLogApp(App):
             "oz",
             "24h",
             # "weight",
-            "target",
+            # "target",
             "% of target",
         )
 
@@ -208,7 +208,7 @@ class WaterLogApp(App):
                 str(row[1]),
                 str(row[2]),
                 # str(row[3]),
-                str(row[4]),
+                # str(row[4]),
                 str(row[5]),
             )
 
