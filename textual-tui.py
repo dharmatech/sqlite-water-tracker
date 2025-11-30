@@ -56,6 +56,9 @@ class WaterLogApp(App):
         self.full_table = DataTable(zebra_stripes=True, id="full-table")
         self.rolling_table = DataTable(zebra_stripes=True, id="rolling-table")
 
+        self.log_table.cursor_type = "row"
+        self.log_table.styles.height = 10
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
 
