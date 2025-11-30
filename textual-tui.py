@@ -194,7 +194,7 @@ class WaterLogApp(App):
         self.rolling_table.add_columns(
             "timestamp",
             "oz",
-            "24h total",
+            "24h",
             "weight",
             "target",
             "% of target",
