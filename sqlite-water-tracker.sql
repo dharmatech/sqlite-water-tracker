@@ -30,15 +30,15 @@ SELECT datetime('now', 'localtime');
 
 DELETE FROM water_log WHERE id = 14;
 -- ----------------------------------------------------------------------
-SELECT
-    SUBSTR(timestamp, 1, 10) AS consumption_date,
-    SUM(ounces) AS total_daily_ounces
-FROM
-    water_log
-GROUP BY
-    consumption_date
-ORDER BY
-    consumption_date DESC;
+-- SELECT
+--     SUBSTR(timestamp, 1, 10) AS consumption_date,
+--     SUM(ounces) AS total_daily_ounces
+-- FROM
+--     water_log
+-- GROUP BY
+--     consumption_date
+-- ORDER BY
+--     consumption_date DESC;
 
 -- consider : create a view for daily totals
 
