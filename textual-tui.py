@@ -57,10 +57,16 @@ class WaterLogApp(App):
         self.rolling_table = DataTable(zebra_stripes=True, id="rolling-table")
 
         self.log_table.cursor_type = "row"
-        self.log_table.styles.height = 10
+        self.log_table.styles.height = 20
+
+        self.full_table.cursor_type = "row"
+        self.full_table.styles.height = 20
+
+        self.rolling_table.cursor_type = "row"
+        self.rolling_table.styles.height = 20
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        yield Header(show_clock=False)
 
         # One title, we’ll update text when rotating views
         yield Static("Rolling 24h", classes="section-title", id="section-title")
@@ -116,7 +122,7 @@ class WaterLogApp(App):
                 SELECT id, timestamp, ounces
                 FROM water_log
                 ORDER BY timestamp DESC
-                LIMIT 20
+                LIMIT 2000
                 """
             )
             return cur.fetchall()
@@ -133,7 +139,7 @@ class WaterLogApp(App):
                 SELECT date, total, weight, target, percent_of_target
                 FROM water_log_full
                 ORDER BY date DESC
-                LIMIT 10
+                LIMIT 2000
                 """
             )
             return cur.fetchall()
@@ -155,7 +161,7 @@ class WaterLogApp(App):
                        percent_of_target
                 FROM rolling_log_full
                 ORDER BY timestamp DESC
-                LIMIT 10
+                LIMIT 2000
                 """
             )
             return cur.fetchall()
