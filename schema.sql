@@ -91,3 +91,18 @@ FROM
     )    
 );
 -- ----------------------------------------------------------------------
+DROP VIEW IF EXISTS rolling_24_hour_summary;
+CREATE VIEW rolling_24_hour_summary AS
+SELECT
+    w1.id,
+    w1.timestamp,
+    w1.ounces,
+    (
+        SELECT SUM(w2.ounces)
+        FROM water_log AS w2
+        WHERE
+            w2.timestamp > datetime(w1.timestamp, '-24 hours')
+            AND w2.timestamp <= w1.timestamp
+    ) AS rolling_24h_ounces
+FROM water_log AS w1
+ORDER BY w1.timestamp;
