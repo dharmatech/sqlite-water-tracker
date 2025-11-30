@@ -106,3 +106,53 @@ SELECT
     ) AS rolling_24h_ounces
 FROM water_log AS w1
 ORDER BY w1.timestamp;
+
+DROP VIEW IF EXISTS rolling_24_hour_summary_with_weight;
+CREATE VIEW rolling_24_hour_summary_with_weight AS
+SELECT
+    timestamp,
+    ounces,
+    rolling_24h_ounces,
+    (
+        SELECT weight_lbs
+        FROM user_weight
+        WHERE timestamp <= r.timestamp
+        ORDER BY timestamp DESC
+        LIMIT 1
+    ) AS weight
+FROM rolling_24_hour_summary AS r;
+
+DROP VIEW IF EXISTS rolling_24_hour_summary_with_weight_and_target;
+CREATE VIEW rolling_24_hour_summary_with_weight_and_target AS
+SELECT
+    timestamp,
+    ounces,
+    rolling_24h_ounces,
+    weight,
+    weight / 2 AS target
+FROM rolling_24_hour_summary_with_weight
+ORDER BY timestamp;
+
+DROP VIEW IF EXISTS rolling_24_hour_summary_with_weight_target_percent;
+CREATE VIEW rolling_24_hour_summary_with_weight_target_percent AS
+SELECT
+    timestamp,
+    ounces,
+    rolling_24h_ounces,
+    weight,
+    target,
+    ROUND(rolling_24h_ounces * 100.0 / target, 2) AS percent_of_target
+FROM rolling_24_hour_summary_with_weight_and_target
+ORDER BY timestamp;
+
+DROP VIEW IF EXISTS rolling_log_full;
+CREATE VIEW rolling_log_full AS
+SELECT
+    timestamp,
+    ounces,
+    rolling_24h_ounces,
+    weight,
+    target,
+    percent_of_target
+FROM rolling_24_hour_summary_with_weight_target_percent
+ORDER BY timestamp;
