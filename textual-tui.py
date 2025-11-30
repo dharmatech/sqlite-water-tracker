@@ -14,25 +14,25 @@ class WaterLogApp(App):
     # Screen {
     #     layout: vertical;
     # }
-
+    #
     # .section-title {
     #     height: 1;
     #     content-align: left middle;
     #     padding: 0 1;
     # }
-
+    #
     # #log-table {
     #     height: 1fr;
     # }
-
+    #
     # #full-table {
     #     height: 1fr;
     # }
-
+    #
     # #rolling-table {
     #     height: 1fr;
     # }
-
+    #
     # #drink-water-btn {
     #     dock: bottom;
     #     height: 3;
@@ -49,6 +49,9 @@ class WaterLogApp(App):
         super().__init__(**kwargs)
         self.db_path = db_path
 
+        # 0 = rolling, 1 = log, 2 = full
+        self.current_view = 0
+
         self.log_table = DataTable(zebra_stripes=True, id="log-table")
         self.full_table = DataTable(zebra_stripes=True, id="full-table")
         self.rolling_table = DataTable(zebra_stripes=True, id="rolling-table")
@@ -56,20 +59,25 @@ class WaterLogApp(App):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
 
-        # yield Static("Latest Drinks (water_log)", classes="section-title")
-        # yield self.log_table
+        # One title, we’ll update text when rotating views
+        yield Static("Rolling 24h", classes="section-title", id="section-title")
 
-        # yield Static("Daily Totals (water_log_full)", classes="section-title")
-        # yield self.full_table
-
-        yield Static("Rolling 24h", classes="section-title")
+        # All three tables are in the layout; we toggle their visibility
         yield self.rolling_table
+        yield self.log_table
+        yield self.full_table
 
+        # View-rotation button
+        yield Button("View: Rolling 24h", id="rotate-view-btn")
+
+        # Drink button (always present)
         yield Button("Drink Water", id="drink-water-btn")
+
         yield Footer()
 
     def on_mount(self) -> None:
         self.refresh_all()
+        self._show_view(0)  # start with rolling 24h
 
     def action_reload(self) -> None:
         self.refresh_all()
@@ -105,7 +113,7 @@ class WaterLogApp(App):
                 SELECT id, timestamp, ounces
                 FROM water_log
                 ORDER BY timestamp DESC
-                LIMIT 10
+                LIMIT 20
                 """
             )
             return cur.fetchall()
@@ -167,9 +175,6 @@ class WaterLogApp(App):
         for row in rows:
             self.log_table.add_row(str(row[0]), row[1], str(row[2]))
 
-        if rows:
-            self.log_table.focus()
-
     def refresh_full_table(self) -> None:
         """Populate the daily summary table."""
         self.full_table.clear(columns=True)
@@ -212,6 +217,40 @@ class WaterLogApp(App):
                 str(row[5]),
             )
 
+    # --- View switching -------------------------------------------------
+
+    def _show_view(self, index: int) -> None:
+        """Show one of the three tables based on index 0–2."""
+        self.current_view = index % 3
+
+        title_widget = self.query_one("#section-title", Static)
+        rotate_button = self.query_one("#rotate-view-btn", Button)
+
+        if self.current_view == 0:
+            # Rolling 24h
+            self.rolling_table.display = True
+            self.log_table.display = False
+            self.full_table.display = False
+
+            title_widget.update("Rolling 24h")
+            rotate_button.label = "View: Latest Drinks"
+        elif self.current_view == 1:
+            # Latest Drinks
+            self.rolling_table.display = False
+            self.log_table.display = True
+            self.full_table.display = False
+
+            title_widget.update("Latest Drinks (water_log)")
+            rotate_button.label = "View: Daily Totals"
+        else:
+            # Daily Totals
+            self.rolling_table.display = False
+            self.log_table.display = False
+            self.full_table.display = True
+
+            title_widget.update("Daily Totals (water_log_full)")
+            rotate_button.label = "View: Rolling 24h"
+
     # --- Events ---------------------------------------------------------
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -219,6 +258,11 @@ class WaterLogApp(App):
         if event.button.id == "drink-water-btn":
             self.insert_drink(8.0)
             self.refresh_all()
+            # keep current view, just refresh tables
+            self._show_view(self.current_view)
+        elif event.button.id == "rotate-view-btn":
+            # Cycle: rolling -> log -> full -> rolling
+            self._show_view(self.current_view + 1)
 
 
 if __name__ == "__main__":
