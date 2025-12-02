@@ -509,7 +509,8 @@ class WaterLogApp(App):
             self.log_table.display = False
             self.full_table.display = False
             self.rolling_plot.display = False
-            self.summary_view.display = False
+            # self.summary_view.display = False
+            self.summary_view.display = True
 
             delete_button.display = False  # hide here
 
@@ -522,7 +523,7 @@ class WaterLogApp(App):
             self.log_table.display = True
             self.full_table.display = False
             self.rolling_plot.display = False
-            self.summary_view.display = False
+            self.summary_view.display = True
 
             delete_button.display = True  # show in this view
 
@@ -537,7 +538,7 @@ class WaterLogApp(App):
             self.log_table.display = False
             self.full_table.display = True
             self.rolling_plot.display = False
-            self.summary_view.display = False
+            self.summary_view.display = True
 
             delete_button.display = False
 
@@ -550,7 +551,7 @@ class WaterLogApp(App):
             self.log_table.display = False
             self.full_table.display = False
             self.rolling_plot.display = True
-            self.summary_view.display = False
+            self.summary_view.display = True
 
             delete_button.display = False
 
