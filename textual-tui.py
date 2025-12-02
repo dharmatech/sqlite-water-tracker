@@ -322,6 +322,27 @@ class WaterLogApp(App):
         plt.ylabel("24h total (oz)")
         # plt.grid(True, True)
 
+    # def refresh_summary_view(self) -> None:
+    #     """Update the last-24-hours summary view."""
+    #     row = self.fetch_last_24h_summary()
+
+    #     if not row:
+    #         self.summary_view.update("No summary data available.")
+    #         return
+
+    #     total_oz, weight, target_oz, percent = row
+
+    #     text = (
+    #         f"Last 24 hours\n"
+    #         f"  Total:  {total_oz:.1f} oz\n"
+    #         f"  Target: {target_oz:.1f} oz  ({percent:.1f}% of target)\n"
+    #         f"  Weight: {weight:.1f} lbs"
+    #     )
+
+    #     self.summary_view.update(text)
+
+
+
     def refresh_summary_view(self) -> None:
         """Update the last-24-hours summary view."""
         row = self.fetch_last_24h_summary()
@@ -332,6 +353,21 @@ class WaterLogApp(App):
 
         total_oz, weight, target_oz, percent = row
 
+        # If total_oz is None, it usually means no drinks in the last 24 hours.
+        if total_oz is None:
+            # You can still show target/weight if you like, or keep it simple.
+            self.summary_view.update(
+                "Last 24 hours\n"
+                "  No drinks logged in the last 24 hours.\n"
+                "  Log some water to see your progress here."
+            )
+            return
+
+        # Be defensive about the others too
+        weight = 0.0 if weight is None else float(weight)
+        target_oz = 0.0 if target_oz is None else float(target_oz)
+        percent = 0.0 if percent is None else float(percent)
+
         text = (
             f"Last 24 hours\n"
             f"  Total:  {total_oz:.1f} oz\n"
@@ -340,7 +376,6 @@ class WaterLogApp(App):
         )
 
         self.summary_view.update(text)
-
 
 
 
