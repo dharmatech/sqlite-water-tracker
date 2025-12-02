@@ -2,6 +2,8 @@
 SELECT * FROM water_log;
 SELECT * FROM water_log ORDER BY timestamp DESC LIMIT 10;
 
+SELECT datetime('now', '-1 day', 'localtime');
+
 SELECT * FROM user_weight;
 
 SELECT * FROM water_log_daily;

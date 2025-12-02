@@ -110,6 +110,7 @@ ORDER BY w1.timestamp;
 DROP VIEW IF EXISTS rolling_24_hour_summary_with_weight;
 CREATE VIEW rolling_24_hour_summary_with_weight AS
 SELECT
+    id,
     timestamp,
     ounces,
     rolling_24h_ounces,
@@ -125,6 +126,7 @@ FROM rolling_24_hour_summary AS r;
 DROP VIEW IF EXISTS rolling_24_hour_summary_with_weight_and_target;
 CREATE VIEW rolling_24_hour_summary_with_weight_and_target AS
 SELECT
+    id,
     timestamp,
     ounces,
     rolling_24h_ounces,
@@ -136,6 +138,7 @@ ORDER BY timestamp;
 DROP VIEW IF EXISTS rolling_24_hour_summary_with_weight_target_percent;
 CREATE VIEW rolling_24_hour_summary_with_weight_target_percent AS
 SELECT
+    id,
     timestamp,
     ounces,
     rolling_24h_ounces,

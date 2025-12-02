@@ -36,6 +36,10 @@ class WaterLogApp(App):
         self.rolling_plot = PlotextPlot(id="rolling-plot")
         self.rolling_plot.styles.height = 30  # tweak as desired
 
+        # Summary "card" for last 24h info
+        self.summary_view = Static(id="summary-view")
+        self.summary_view.styles.height = 5  # small card-like block
+
     def compose(self) -> ComposeResult:
         # Clock off
         yield Header(show_clock=False)
@@ -48,9 +52,12 @@ class WaterLogApp(App):
         yield self.log_table
         yield self.full_table
         yield self.rolling_plot
+        yield self.summary_view
 
         # View-rotation button
         yield Button("View: Latest Drinks", id="rotate-view-btn")
+
+        yield Button("Delete Selected", id="delete-row-btn")
 
         # Drink button (always present)
         yield Button("Drink Water", id="drink-water-btn")
@@ -143,6 +150,67 @@ class WaterLogApp(App):
         finally:
             conn.close()
 
+    def fetch_last_24h_summary(self):
+        """Fetch single-row summary from last_24_hours_summary view."""
+        conn = self._connect()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT total_ounces_last_24_hours,
+                       weight,
+                       target_ounces,
+                       percent_of_target
+                FROM last_24_hours_summary
+                LIMIT 1
+                """
+            )
+            return cur.fetchone()
+        finally:
+            conn.close()
+
+    def delete_selected_log_row(self) -> None:
+        """Delete the selected row from water_log when in the log view."""
+        # Only act in the water_log view (view index 1)
+        if self.current_view != 1:
+            return
+
+        # Get current cursor row in the DataTable
+        row_index = self.log_table.cursor_row
+        if row_index is None:
+            return  # nothing selected
+
+        # Get row data from the table (first column is the id)
+        row = self.log_table.get_row_at(row_index)
+        if not row:
+            return
+
+        row_id_str = row[0]
+        try:
+            row_id = int(row_id_str)
+        except (TypeError, ValueError):
+            return
+
+        # Delete from DB
+        conn = self._connect()
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM water_log WHERE id = ?", (row_id,))
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Refresh anything that depends on water_log
+        self.refresh_log_table()
+        self.refresh_rolling_table()
+        self.refresh_rolling_plot()
+        self.refresh_summary_view()
+
+        # Stay in the same view
+        self._show_view(self.current_view)
+
+
+
     # --- Table & plot refreshers ---------------------------------------
 
     def refresh_all(self) -> None:
@@ -150,6 +218,7 @@ class WaterLogApp(App):
         self.refresh_full_table()
         self.refresh_rolling_table()
         self.refresh_rolling_plot()
+        self.refresh_summary_view()
 
     def refresh_log_table(self) -> None:
         """Populate the per-entry table."""
@@ -241,7 +310,8 @@ class WaterLogApp(App):
 
         # Oldest on the left, newest on the right
         # rows = list(reversed(rows))
-        y = [float(r[2]) for r in rows]  # rolling_24h_ounces
+        # y = [float(r[2]) for r in rows]  # rolling_24h_ounces
+        y = [float(r[5]) for r in rows]  # rolling_24h_ounces
         x = list(range(len(y)))
 
         # plt.plot(x, y)
@@ -252,17 +322,151 @@ class WaterLogApp(App):
         plt.ylabel("24h total (oz)")
         # plt.grid(True, True)
 
+    def refresh_summary_view(self) -> None:
+        """Update the last-24-hours summary view."""
+        row = self.fetch_last_24h_summary()
+
+        if not row:
+            self.summary_view.update("No summary data available.")
+            return
+
+        total_oz, weight, target_oz, percent = row
+
+        text = (
+            f"Last 24 hours\n"
+            f"  Total:  {total_oz:.1f} oz\n"
+            f"  Target: {target_oz:.1f} oz  ({percent:.1f}% of target)\n"
+            f"  Weight: {weight:.1f} lbs"
+        )
+
+        self.summary_view.update(text)
+
 
 
 
     # --- View switching -------------------------------------------------
 
+    # def _show_view(self, index: int) -> None:
+    #     """Show one of the four views based on index 0–3."""
+    #     self.current_view = index % 4
+
+    #     title_widget = self.query_one("#section-title", Static)
+    #     rotate_button = self.query_one("#rotate-view-btn", Button)
+
+    #     if self.current_view == 0:
+    #         # Rolling 24h table
+    #         self.rolling_table.display = True
+    #         self.log_table.display = False
+    #         self.full_table.display = False
+    #         self.rolling_plot.display = False
+
+    #         title_widget.update("Rolling 24h")
+    #         rotate_button.label = "View: Latest Drinks"
+
+    #     elif self.current_view == 1:
+    #         # Latest Drinks (water_log)
+    #         self.rolling_table.display = False
+    #         self.log_table.display = True
+    #         self.full_table.display = False
+    #         self.rolling_plot.display = False
+
+    #         title_widget.update("Latest Drinks (water_log)")
+    #         rotate_button.label = "View: Daily Totals"
+
+    #         # Focus so you can scroll immediately
+    #         self.log_table.focus()
+
+    #     elif self.current_view == 2:
+    #         # Daily Totals (water_log_full)
+    #         self.rolling_table.display = False
+    #         self.log_table.display = False
+    #         self.full_table.display = True
+    #         self.rolling_plot.display = False
+
+    #         title_widget.update("Daily Totals (water_log_full)")
+    #         rotate_button.label = "View: Rolling Chart"
+
+    #     else:
+    #         # Rolling 24h chart view (Plotext)
+    #         self.rolling_table.display = False
+    #         self.log_table.display = False
+    #         self.full_table.display = False
+    #         self.rolling_plot.display = True
+
+    #         title_widget.update("Rolling 24h Chart")
+    #         rotate_button.label = "View: Rolling 24h"
+
+    # def _show_view(self, index: int) -> None:
+    #     """Show one of the five views based on index 0–4."""
+    #     self.current_view = index % 5
+
+    #     title_widget = self.query_one("#section-title", Static)
+    #     rotate_button = self.query_one("#rotate-view-btn", Button)
+
+    #     if self.current_view == 0:
+    #         # Rolling 24h table
+    #         self.rolling_table.display = True
+    #         self.log_table.display = False
+    #         self.full_table.display = False
+    #         self.rolling_plot.display = False
+    #         self.summary_view.display = False
+
+    #         title_widget.update("Rolling 24h")
+    #         rotate_button.label = "View: Latest Drinks"
+
+    #     elif self.current_view == 1:
+    #         # Latest Drinks (water_log)
+    #         self.rolling_table.display = False
+    #         self.log_table.display = True
+    #         self.full_table.display = False
+    #         self.rolling_plot.display = False
+    #         self.summary_view.display = False
+
+    #         title_widget.update("Latest Drinks (water_log)")
+    #         rotate_button.label = "View: Daily Totals"
+    #         self.log_table.focus()
+
+    #     elif self.current_view == 2:
+    #         # Daily Totals (water_log_full)
+    #         self.rolling_table.display = False
+    #         self.log_table.display = False
+    #         self.full_table.display = True
+    #         self.rolling_plot.display = False
+    #         self.summary_view.display = False
+
+    #         title_widget.update("Daily Totals (water_log_full)")
+    #         rotate_button.label = "View: Rolling Chart"
+
+    #     elif self.current_view == 3:
+    #         # Rolling 24h chart view (Plotext)
+    #         self.rolling_table.display = False
+    #         self.log_table.display = False
+    #         self.full_table.display = False
+    #         self.rolling_plot.display = True
+    #         self.summary_view.display = False
+
+    #         title_widget.update("Rolling 24h Chart")
+    #         rotate_button.label = "View: 24h Summary"
+
+    #     else:
+    #         # Last 24 hours summary card
+    #         self.rolling_table.display = False
+    #         self.log_table.display = False
+    #         self.full_table.display = False
+    #         self.rolling_plot.display = False
+    #         self.summary_view.display = True
+
+    #         title_widget.update("Last 24 Hours Summary")
+    #         rotate_button.label = "View: Rolling 24h"
+
+
     def _show_view(self, index: int) -> None:
-        """Show one of the four views based on index 0–3."""
-        self.current_view = index % 4
+        """Show one of the five views based on index 0–4."""
+        self.current_view = index % 5
 
         title_widget = self.query_one("#section-title", Static)
         rotate_button = self.query_one("#rotate-view-btn", Button)
+        delete_button = self.query_one("#delete-row-btn", Button)  # NEW
 
         if self.current_view == 0:
             # Rolling 24h table
@@ -270,6 +474,9 @@ class WaterLogApp(App):
             self.log_table.display = False
             self.full_table.display = False
             self.rolling_plot.display = False
+            self.summary_view.display = False
+
+            delete_button.display = False  # hide here
 
             title_widget.update("Rolling 24h")
             rotate_button.label = "View: Latest Drinks"
@@ -280,11 +487,13 @@ class WaterLogApp(App):
             self.log_table.display = True
             self.full_table.display = False
             self.rolling_plot.display = False
+            self.summary_view.display = False
+
+            delete_button.display = True  # show in this view
 
             title_widget.update("Latest Drinks (water_log)")
             rotate_button.label = "View: Daily Totals"
 
-            # Focus so you can scroll immediately
             self.log_table.focus()
 
         elif self.current_view == 2:
@@ -293,21 +502,61 @@ class WaterLogApp(App):
             self.log_table.display = False
             self.full_table.display = True
             self.rolling_plot.display = False
+            self.summary_view.display = False
+
+            delete_button.display = False
 
             title_widget.update("Daily Totals (water_log_full)")
             rotate_button.label = "View: Rolling Chart"
 
-        else:
+        elif self.current_view == 3:
             # Rolling 24h chart view (Plotext)
             self.rolling_table.display = False
             self.log_table.display = False
             self.full_table.display = False
             self.rolling_plot.display = True
+            self.summary_view.display = False
+
+            delete_button.display = False
 
             title_widget.update("Rolling 24h Chart")
+            rotate_button.label = "View: 24h Summary"
+
+        else:
+            # Last 24 hours summary card
+            self.rolling_table.display = False
+            self.log_table.display = False
+            self.full_table.display = False
+            self.rolling_plot.display = False
+            self.summary_view.display = True
+
+            delete_button.display = False
+
+            title_widget.update("Last 24 Hours Summary")
             rotate_button.label = "View: Rolling 24h"
 
+
     # --- Events ---------------------------------------------------------
+
+    # def on_button_pressed(self, event: Button.Pressed) -> None:
+    #     """Handle button presses."""
+    #     if event.button.id == "drink-water-btn":
+    #         self.insert_drink(8.0)
+    #         self.refresh_all()
+    #         self._show_view(self.current_view)
+    #     elif event.button.id == "rotate-view-btn":
+    #         # Cycle: rolling table -> log table -> full table -> chart -> rolling table
+    #         self._show_view(self.current_view + 1)
+
+    # def on_button_pressed(self, event: Button.Pressed) -> None:
+    #     """Handle button presses."""
+    #     if event.button.id == "drink-water-btn":
+    #         self.insert_drink(8.0)
+    #         self.refresh_all()
+    #         self._show_view(self.current_view)
+    #     elif event.button.id == "rotate-view-btn":
+    #         # Cycle: rolling table -> log -> full -> chart -> summary -> rolling
+    #         self._show_view(self.current_view + 1)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
@@ -315,9 +564,15 @@ class WaterLogApp(App):
             self.insert_drink(8.0)
             self.refresh_all()
             self._show_view(self.current_view)
+
         elif event.button.id == "rotate-view-btn":
-            # Cycle: rolling table -> log table -> full table -> chart -> rolling table
+            # Cycle: rolling table -> log -> full -> chart -> summary -> rolling
             self._show_view(self.current_view + 1)
+
+        elif event.button.id == "delete-row-btn":
+            self.delete_selected_log_row()
+
+
 
 
 if __name__ == "__main__":
